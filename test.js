@@ -132,12 +132,37 @@
 
 
 // ————————————————————————————————————————————————————4
-let p = new Promise((resolve, reject) => {
-  setTimeout(() => {
-    reject('hello')
-  }, 1000)
-})
-p.then(123, err => {
+// let p = new Promise((resolve, reject) => {
+//   setTimeout(() => {
+//     reject('hello')
+//   }, 1000)
+// })
+// p.then(123, err => {
+//   console.log(err)
+// })
+// ————————————————————————————————————————————————————4
+
+
+// ————————————————————————————————————————————————————5
+// let p = new Promise((resolve, reject) => {
+//   resolve(new Promise((resolve1, reject1) => {
+//     setTimeout(() => {
+//       reject('error')
+//     }, 1000)
+//   }))
+// })
+
+let p = Promise.resolve('zbw')
+p.then(data => {
+  // console.log(data)
+  return data
+}).finally(() => {
+  console.log('finally')
+}).then(data => {
+  console.log(data)
+}, err => {
   console.log(err)
 })
-// ————————————————————————————————————————————————————4
+
+
+// ————————————————————————————————————————————————————5

@@ -74,6 +74,11 @@ class Promise {
     this.onRejectedCallBacks = []
 
     let resolve = (value) => {
+      if (value instanceof Promise) {
+        // 如果一个promise resolve 了一个新的promise 他会等这个内部的promise执行完成
+        // 但是reject不需要
+        return value.then(resolve, reject)
+      }
       // 只有pending状态时才可以改变promise的状态
       if (this.status === PENDING) {
         this.status = FULLFILLED
@@ -95,6 +100,56 @@ class Promise {
     } catch (e) {
       reject(e)
     }
+  }
+
+  static isPromise(value) {
+    if ((typeof value === "object" && value !== null) || typeof value === "function") {
+      // 因为要从value中获取then属性，如果value是null 会抛错
+      return typeof value.then === "function"
+    }
+    return false
+  }
+
+  static all(promises) {
+    return new Promise((resolve, reject) => {
+      let arr = []
+      let index = 0
+      let processData = (i, data) => {
+        // 为了防止数据类表中 前两个是异步 第三个是常量  所以不可以用 arr.length === promises.length 判断是否都执行完毕
+        arr[i] = data
+        if (++index === promises.length) {
+          resolve(arr)
+        }
+      }
+      for (let i = 0; i < promises.length; i++) {
+        let current = promises[i]
+        // 判断current是否是promise
+        if (this.isPromise(current)) {
+          current.then(data => {
+            processData(i, data)
+          }, reject)
+        } else {
+          processData(i, current)
+        }
+      }
+    })
+  }
+
+  static reject(reason) {
+    return new Promise((resolve, reject) => {
+      reject(reason)
+    })
+  }
+
+  static resolve(value) {
+    return new Promise((resolve, reject) => {
+      resolve(value)
+    })
+  }
+
+  // 没有成功的then
+  catch(errCallback) {
+    return this.then(null, errCallback)
   }
 
   // then方法会判断当前的状态

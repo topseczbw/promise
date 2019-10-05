@@ -71,7 +71,52 @@ resolve 中可能还会返回 promise  y  递归解析
 
 第一个then中的 错误处理  到下一个 可能变成正确的
 
+## 处理resolve() 中的值  如果是 一个 promise （不在规范中）
+
+```js
+let p = new Promise((resolve, reject) => {
+  resolve(new Promise((resolve1, reject1) => {
+    setTimeout(() => {
+      resolve1('hello')
+    }, 1000)
+  }))
+})
+p.then(data => {
+  console.log(data)
+})
+```
+
+## catch （不在规范中）
+
+上一个then中如果报错， 会走到下一个catch中
+
+catch后可以继续then
+
+catch就是then的一个别名  语法糖 让我们少写一个 成功的回调
+
 ## promise 应用
+
+### promise.finally
+
+最终无论如何都执行，如果返回一个promise，会等待这个promise执行完成
+
+promise.finally 后可以继续then
+
+### Promise.try() 用来捕获异常的  可以捕获同步/异步异常
+
+### Promise.resolve()  ===
+
+### Promise.reject()
+
+### Promise.all()
+
+理多个异步并发的问题， 全部完成才算完成 有一个失败就算失败,
+
+then中返回的数据  是按照顺序执行的
+
+为了防止数据类表中 前两个是异步 第三个是常量  所以不可以用 arr.length === promises.length 判断是否都执行完毕
+
+### Promise.race() 有一个成功就算成功
 
 ## $$zbw$$
 
