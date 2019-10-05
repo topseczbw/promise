@@ -9,8 +9,8 @@
 - [如何手写一个简版 promise](#如何手写一个简版-promise)
   - [既然 promise 是一个构造函数/类，那么它 new 时可以传递哪些参数，这些参数又是做什么用的](#既然-promise-是一个构造函数类那么它-new-时可以传递哪些参数这些参数又是做什么用的)
   - [为了实现上述功能，每个 promise 实例应该具有哪些内部状态](#为了实现上述功能每个-promise-实例应该具有哪些内部状态)
-  - [当 executor 同步：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')](#当-executor-同步2--1--resolve回答正确--throw-new-error原则性错误)
-  - [当 executor 异步：setTimeOut(() => resolve('async'), 2000)](#当-executor-异步settimeout--resolveasync-2000)
+  - [当 executor 函数只有同步时：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')](#当-executor-函数只有同步时2--1--resolve回答正确--throw-new-error原则性错误)
+  - [当 executor 函数存在异步时：setTimeOut(() => resolve('async'), 2000)](#当-executor-函数存在异步时settimeout--resolveasync-2000)
 
 <!-- /TOC -->
 ## promise 是什么
@@ -60,11 +60,11 @@ executor执行业务逻辑（同步/异步），在适当的时机调用，resol
 3. 当resolve(data) / reject(reason)时，promise需要暂存外部告知的**数据**或**失败原因**，并且当外部手动调用then时，还需要用到 => this.value  this.reason
 4. promise实例可以被手动调用then方法，处理成功时的数据或失败时的原因 => this.then()
 
-### 当 executor 同步：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')
+### 当 executor 函数只有同步时：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')
 
 由于executor函数会立即执行，所以如果该函数都是同步逻辑，promise状态会立即改变，数据会立即暂存，所以后面.then时，可以立即处理对应的数据。
 
-### 当 executor 异步：setTimeOut(() => resolve('async'), 2000)
+### 当 executor 函数存在异步时：setTimeOut(() => resolve('async'), 2000)
 
 但是当executor函数中有异步逻辑时，resolve函数不会马上执行，但是.then会在 new Promise 后马上执行。但此时promise还处于pending状态，所以我们需要在原型的then方法中，当状态是pending时，先将用户传来的处理数据/异常的方法暂存进一个队列，当调用resolve/reject，在从队列中遍历执行处理方法。此处使用发布订阅模式。
 
