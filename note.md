@@ -1,6 +1,36 @@
-# 手写promise
+# promise
 
-## promise是什么
+2019/10/05 15:43
+
+<!-- TOC -->
+
+- [promise 是什么](#promise-是什么)
+- [promise 存在的价值](#promise-存在的价值)
+- [promise 特点](#promise-特点)
+- [如何手写一个简版 promise](#如何手写一个简版-promise)
+  - [既然promise是一个构造函数/类，那么它new时可以传递哪些参数，这些参数又是做什么用的](#既然promise是一个构造函数类那么它new时可以传递哪些参数这些参数又是做什么用的)
+  - [为了实现上述功能，每个promise实例应该具有哪些内部状态](#为了实现上述功能每个promise实例应该具有哪些内部状态)
+  - [当executor同步：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')](#当executor同步2--1--resolve回答正确--throw-new-error原则性错误)
+  - [当executor异步：setTimeOut(() => resolve('async'), 2000)](#当executor异步settimeout--resolveasync-2000)
+- [链式调用 （最复杂的一部分）](#链式调用-最复杂的一部分)
+- [then中的可选参数   第一个错误没处理 错误 穿透](#then中的可选参数---第一个错误没处理-错误-穿透)
+- [处理resolve() 中的值  如果是 一个 promise （不在规范中）](#处理resolve-中的值--如果是-一个-promise-不在规范中)
+- [catch （不在规范中）](#catch-不在规范中)
+- [promise 其他应用](#promise-其他应用)
+  - [promise.finally](#promisefinally)
+  - [Promise.try() 用来捕获异常的  可以捕获同步/异步异常](#promisetry-用来捕获异常的--可以捕获同步异步异常)
+  - [Promise.resolve()  ===](#promiseresolve--)
+  - [Promise.reject()](#promisereject)
+  - [Promise.all()](#promiseall)
+  - [Promise.race() 有一个成功就算成功](#promiserace-有一个成功就算成功)
+- [$$zbw$$](#zbw)
+- [A+ 规范](#a-规范)
+- [generactor](#generactor)
+- [async](#async)
+
+<!-- /TOC -->
+
+## promise 是什么
 
 promise是一个构造函数/类
 
@@ -10,26 +40,52 @@ promise是一个构造函数/类
 
 解决链式问题，第二个接口依赖于第一个接口，解决回调地狱问题
 
-### 参数
+## promise 特点
 
-1. 每次new 一个promise 都需要传递一个执行器 执行器会立即执行
-2. 执行器函数中有两个参数 resolve reject
+1. 每次new一个promise实例时，都需要传递一个执行器函数executor，并且执行器函数会立即执行
 
-### 状态 + 同步
+2. 执行器函数有两个参数 resolve reject
+3. 每个promise都有一个状态标识，有三种状态类型：
 
-1. 每个promise有三种状态  pending  =>  resolve 成功了   => reject 拒绝了
-2. 如果一旦成功了，不能变成失败。  一旦失败了，不能再成功了  （什么时候可以改变状态呢？ 只有pending时）
-3. 如果抛出异常 `throw new Error('失败了！！！')` ，也会执行失败回调  相当于reject
+   pending => resolve 成功了
 
----
+   pending => reject 失败了
 
-每个promise都有一个then方法
+4. 状态可以改变，一旦改变不可以再次更改
 
-then方法可能被调用多次  在一个promise上   同步没问题   异步的时候  就是状态是pending的时候 你调用了then
+   一旦成功了，不能再变成失败，一旦失败了，不能再变成成功
+    （什么时候可以改变状态呢？ ）
 
-## 异步
+5. 如果执行器函数在执行时，抛出异常如 `throw new Error('自定义错误')` ，那promise应该变成失败状态，会被.then时的 `onRejected` 处理错误的函数接收
 
-就是状态是pending的时候 你调用了then  刚开始状态没有变  那就先把处理数据的函数存起来  等异步时间到了 拿到数据了 在执行处理函数  发布订阅模式    同步时直接触发  异步时发布订阅
+## 如何手写一个简版 promise
+
+### 既然promise是一个构造函数/类，那么它new时可以传递哪些参数，这些参数又是做什么用的
+
+executor、resolve、reject
+
+executor执行业务逻辑（同步/异步），在适当的时机调用，resolve/reject。
+
+如数据成功返回时，调用resolve函数，将promise实例变成成功态，并将数据告诉promise实例，promise实例拿到数据后，先暂存起来，当promise实例被手动调用.then方法时，供then方法第一个处理成功信息的函数nFullfilled使用
+
+如数据返回失败/代码报错时，调用reject函数，将promise实例变成失败态，并将失败原因告诉promise实例，promise实例拿到失败原因后，先暂存起来，当promise实例被手动调用.then方法时，供then方法第二个处理失败信息的函数onRejected使用
+
+### 为了实现上述功能，每个promise实例应该具有哪些内部状态
+
+1. 用户手动调用的resolve、reject函数不需要自己声明变量，所以调用的应该是new Promise() 时， Promise函数内部作用域的变量 => constructor 中的resolve和 reject
+2. resolve函数可以改变promise状态，每个promise都有一个状态标识，标识当前状态 => this.status
+3. 当resolve(data) / reject(reason)时，promise需要暂存外部告知的**数据**或**失败原因**，并且当外部手动调用then时，还需要用到 => this.value  this.reason
+4. promise实例可以被手动调用then方法，处理成功时的数据或失败时的原因 => this.then()
+
+### 当executor同步：2 > 1 ? resolve('回答正确') : throw new Error('原则性错误')
+
+由于executor函数会立即执行，所以如果该函数都是同步逻辑，promise状态会立即改变，数据会立即暂存，所以后面.then时，可以立即处理对应的数据。
+
+### 当executor异步：setTimeOut(() => resolve('async'), 2000)
+
+但是当executor函数中有异步逻辑时，resolve函数不会马上执行，但是.then会在 new Promise 后马上执行。但此时promise还处于pending状态，所以我们需要在原型的then方法中，当状态是pending时，先将用户传来的处理数据/异常的方法暂存进一个队列，当调用resolve/reject，在从队列中遍历执行处理方法。此处使用发布订阅模式。
+
+故promise增加onResolvedCallBacks、onRejectedCallBacks两个数组实例属性，暂存处理函数。
 
 ## 链式调用 （最复杂的一部分）
 
@@ -94,7 +150,7 @@ catch后可以继续then
 
 catch就是then的一个别名  语法糖 让我们少写一个 成功的回调
 
-## promise 应用
+## promise 其他应用
 
 ### promise.finally
 
@@ -146,3 +202,11 @@ promise实例 都是 thenable 对象  能then的就是promise实例
 ## A+ 规范
 
 [promise A+](https://promisesaplus.com/)
+
+## generactor
+
+## async
+
+async函数返回的是promise
+
+捕获异常
